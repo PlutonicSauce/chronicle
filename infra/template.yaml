@@ -34,7 +34,6 @@ Resources:
       Environment:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl
-          AWS_REGION: !Ref AWS::Region
           USE_BEDROCK: 'true'
           S3_EXPORT_BUCKET: !Ref S3ExportBucket
           CORS_ORIGINS: !Ref FrontendOrigin
