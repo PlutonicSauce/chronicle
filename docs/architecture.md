@@ -26,7 +26,7 @@ The frontend has no database credentials. The API owns ingestion, ranking, autho
 
 `projects` scopes every memory. `memories` is the immutable core event record: title, summary, source evidence, actor, repository metadata, scored attributes, tags, and an embedding. `memory_relationships` is a directed, typed edge table for causality, supersession, duplication, and contextual links. `memory_access_log` records agent and human retrieval to make reasoning trails auditable.
 
-The vector index uses a project UUID prefix and a cosine operator class. That matches the most common query shape: "find the nearest memories inside this project", allowing CockroachDB to keep tenant/project filtering and vector retrieval in one consistent system of record. Keyword retrieval uses a stored `TSVECTOR` document and GIN index. Hybrid ranking is calculated in the API from normalized semantic and text relevance scores, keeping the policy easy to explain and adjust.
+The vector index uses a project UUID prefix and a cosine operator class. That matches the most common query shape: "find the nearest memories inside this project", allowing CockroachDB to keep tenant/project filtering and vector retrieval in one consistent system of record. Keyword retrieval uses portable `ILIKE` matching across the memory title, summary, and repository fields. Hybrid ranking is calculated in the API from normalized semantic and text relevance scores, keeping the policy easy to explain and adjust.
 
 ## Why these choices
 

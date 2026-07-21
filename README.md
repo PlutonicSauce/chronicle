@@ -76,10 +76,11 @@ Open [http://localhost:3000](http://localhost:3000). Search `Why did authenticat
 
 ### 1. Create the memory database
 
-Create a CockroachDB Cloud cluster, then copy its connection string. Run the migration using a cluster admin; it enables the vector-index feature before creating the empty vector index.
+Create a CockroachDB Cloud cluster, then copy its connection string. Run the baseline migration using a cluster admin, then apply the vector index with the CockroachDB SQL client. The Cloud web SQL Shell cannot build vector indexes.
 
 ```bash
 cockroach sql --url "$DATABASE_URL" --file=infra/schema.sql
+cockroach sql --url "$DATABASE_URL" --file=infra/vector-index.sql
 ```
 
 Copy `backend/.env.example` to `backend/.env` and set at least:
@@ -161,7 +162,7 @@ Interactive API documentation is available at [http://localhost:8000/docs](http:
 | Table | Responsibility |
 | --- | --- |
 | `projects` | Repository-scoped isolation and project metadata. |
-| `memories` | Durable event facts, source, timestamp, tags, confidence, importance, git context, `TSVECTOR`, and `VECTOR(512)` embedding. |
+| `memories` | Durable event facts, source, timestamp, tags, confidence, importance, git context, and `VECTOR(512)` embedding. |
 | `memory_relationships` | Typed directed edges such as `led_to`, `enabled`, `supersedes`, and `prevented_repeat`. |
 | `memory_access_log` | Auditable agent/human inspection and retrieval events. |
 

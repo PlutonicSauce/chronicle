@@ -1,8 +1,8 @@
 -- Chronicle's permanent engineering memory store.
 -- Run on a CockroachDB Cloud cluster before the API starts.
--- Vector indexing must be enabled by a cluster admin. This runs before any data
--- is inserted, avoiding the non-empty-table backfill limitation.
-SET CLUSTER SETTING feature.vector_index.enabled = true;
+-- Apply vector-index.sql separately with the CockroachDB SQL client. The Cloud
+-- web SQL Shell currently uses a schema-change route that cannot build vector
+-- indexes.
 
 CREATE TABLE IF NOT EXISTS projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -29,18 +29,11 @@ CREATE TABLE IF NOT EXISTS memories (
   commit_hash STRING,
   branch STRING,
   metadata JSONB NOT NULL DEFAULT '{}'::JSONB,
-  search_document TSVECTOR AS (
-    to_tsvector('english', title || ' ' || summary || ' ' || array_to_string(tags, ' '))
-  ) STORED,
   embedding VECTOR(512) NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS memories_project_time_idx
   ON memories (project_id, occurred_at DESC);
-CREATE INVERTED INDEX IF NOT EXISTS memories_search_idx
-  ON memories (search_document);
-CREATE VECTOR INDEX IF NOT EXISTS memories_embedding_idx
-  ON memories (project_id, embedding vector_cosine_ops);
 
 CREATE TABLE IF NOT EXISTS memory_relationships (
   from_memory_id UUID NOT NULL REFERENCES memories(id) ON DELETE CASCADE,

@@ -18,6 +18,17 @@ def _vector_literal(values: Iterable[float]) -> str:
     return "[" + ",".join(f"{value:.9f}" for value in values) + "]"
 
 
+def _keyword_score(row: dict, query: str) -> float:
+    """Portable keyword scoring for Cloud-compatible memory retrieval."""
+    terms = [term for term in query.lower().split() if term]
+    if not terms:
+        return 0.0
+    haystack = " ".join(
+        [row["title"], row["summary"], row["repository"], *list(row.get("tags") or [])]
+    ).lower()
+    return min(1.0, sum(term in haystack for term in terms) / len(terms))
+
+
 class CockroachMemoryStore:
     """Repository that keeps records, vectors, and relationship edges transactional."""
 
@@ -87,34 +98,34 @@ class CockroachMemoryStore:
                 return [self._public(row) for row in cursor.fetchall()]
 
         if mode == "keyword":
+            pattern = f"%{query}%"
             with self._connection() as connection, connection.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT *, ts_rank(search_document, plainto_tsquery('english', %s)) AS keyword_score
+                    SELECT *
                     FROM memories
                     WHERE project_id = %s
-                      AND search_document @@ plainto_tsquery('english', %s)
-                    ORDER BY keyword_score DESC, importance DESC
+                      AND (title ILIKE %s OR summary ILIKE %s OR repository ILIKE %s)
+                    ORDER BY importance DESC, occurred_at DESC
                     LIMIT %s
                     """,
-                    (query, project_id, query, limit),
+                    (project_id, pattern, pattern, pattern, limit),
                 )
-                return [self._public(row, float(row["keyword_score"]) * 4) for row in cursor.fetchall()]
+                return [self._public(row, _keyword_score(row, query)) for row in cursor.fetchall()]
 
         vector = _vector_literal(self.embedder.embed(query))
         candidate_limit = max(limit * 5, 40) if mode == "hybrid" else limit
         with self._connection() as connection, connection.cursor() as cursor:
             cursor.execute(
-                """
-                SELECT *,
-                       1 - (embedding <=> %s::VECTOR) AS semantic_score,
-                       ts_rank(search_document, plainto_tsquery('english', %s)) AS keyword_score
-                FROM memories
-                WHERE project_id = %s
-                ORDER BY embedding <=> %s::VECTOR
-                LIMIT %s
-                """,
-                (vector, query, project_id, vector, candidate_limit),
+                    """
+                    SELECT *,
+                       1 - (embedding <=> %s::VECTOR) AS semantic_score
+                    FROM memories
+                    WHERE project_id = %s
+                    ORDER BY embedding <=> %s::VECTOR
+                    LIMIT %s
+                    """,
+                (vector, project_id, vector, candidate_limit),
             )
             rows = cursor.fetchall()
 
@@ -125,7 +136,7 @@ class CockroachMemoryStore:
             (
                 (
                     0.68 * float(row["semantic_score"])
-                    + 0.32 * min(1.0, float(row["keyword_score"]) * 4),
+                    + 0.32 * _keyword_score(row, query),
                     row,
                 )
                 for row in rows
