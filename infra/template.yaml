@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Chronicle FastAPI service on AWS Lambda with Amazon Bedrock.
+
+Parameters:
+  DatabaseUrl:
+    Type: String
+    NoEcho: true
+    Description: CockroachDB Cloud connection string for the Chronicle database.
+  S3ExportBucket:
+    Type: String
+    Default: ''
+    Description: Optional S3 bucket for JSON memory exports.
+  FrontendOrigin:
+    Type: String
+    Default: http://localhost:3000
+    Description: Allowed production frontend origin for the FastAPI CORS policy.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    MemorySize: 1024
+    Architectures:
+      - arm64
+
+Resources:
+  ChronicleApi:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend
+      Handler: app.lambda_handler.handler
+      Description: Chronicle's persistent engineering-memory API.
+      Environment:
+        Variables:
+          DATABASE_URL: !Ref DatabaseUrl
+          AWS_REGION: !Ref AWS::Region
+          USE_BEDROCK: 'true'
+          S3_EXPORT_BUCKET: !Ref S3ExportBucket
+          CORS_ORIGINS: !Ref FrontendOrigin
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource: '*'
+      Events:
+        HttpApi:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+  ApiUrl:
+    Description: Chronicle API Gateway endpoint.
+    Value: !Sub 'https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com/'
