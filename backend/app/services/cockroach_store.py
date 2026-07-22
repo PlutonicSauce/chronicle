@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import UTC, datetime
+from pathlib import Path
 
 import psycopg
 from psycopg.rows import dict_row
@@ -12,6 +13,8 @@ from psycopg.types.json import Jsonb
 from app.schemas import MemoryCreate
 from app.services.embedding import Embedder
 from app.settings import Settings
+
+COCKROACH_CLOUD_CA = Path(__file__).resolve().parents[1] / "certs" / "isrgrootx1.pem"
 
 
 def _vector_literal(values: Iterable[float]) -> str:
@@ -40,13 +43,12 @@ class CockroachMemoryStore:
         self._project_id: str | None = None
 
     def _connection(self):
-        # CockroachDB Cloud presents a certificate chained to a public CA. Lambda
-        # does not have a user-level ~/.postgresql/root.crt, so tell libpq to use
-        # the runtime's system trust store while preserving verify-full semantics.
+        # CockroachDB Basic uses a Let's Encrypt chain. Bundle the trusted root so
+        # Lambda can retain TLS hostname and certificate verification.
         return psycopg.connect(
             self.settings.database_url,
             row_factory=dict_row,
-            sslrootcert="system",
+            sslrootcert=str(COCKROACH_CLOUD_CA),
         )
 
     def _project(self) -> str:
