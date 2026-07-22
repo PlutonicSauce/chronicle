@@ -40,7 +40,14 @@ class CockroachMemoryStore:
         self._project_id: str | None = None
 
     def _connection(self):
-        return psycopg.connect(self.settings.database_url, row_factory=dict_row)
+        # CockroachDB Cloud presents a certificate chained to a public CA. Lambda
+        # does not have a user-level ~/.postgresql/root.crt, so tell libpq to use
+        # the runtime's system trust store while preserving verify-full semantics.
+        return psycopg.connect(
+            self.settings.database_url,
+            row_factory=dict_row,
+            sslrootcert="system",
+        )
 
     def _project(self) -> str:
         if self._project_id:
