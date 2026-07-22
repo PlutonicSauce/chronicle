@@ -18,7 +18,7 @@ It is deliberately not a chatbot or generic RAG surface. The product is the memo
 ```mermaid
 flowchart LR
   agent["Coding agents · CI · GitHub events"] --> api["Chronicle API · FastAPI"]
-  api --> bedrock["Amazon Bedrock · embeddings + synthesis"]
+  api -. optional .-> bedrock["Amazon Bedrock · embeddings + synthesis"]
   api --> crdb["CockroachDB Cloud · records + vectors + edges"]
   mcp["CockroachDB Cloud MCP Server"] --> crdb
   ide["Cursor · Claude Code"] --> mcp
@@ -35,7 +35,7 @@ The frontend never receives database credentials. FastAPI owns ingestion, retrie
 | --- | --- |
 | CockroachDB Distributed Vector Indexing | `memories.embedding` is a `VECTOR(512)` column with a project-prefixed cosine vector index. Semantic retrieval keeps vectors and transactional engineering facts in one durable store. |
 | CockroachDB Cloud Managed MCP Server | [`.cursor/mcp.json`](.cursor/mcp.json) connects Cursor to `https://cockroachlabs.cloud/mcp`, scoped to one cluster through the required `mcp-cluster-id` header. Agents can inspect the live Chronicle schema and query it directly. |
-| Amazon Bedrock | Titan Text Embeddings V2 creates normalized 512-dimension embeddings. Bedrock Converse optionally produces concise, evidence-bounded synthesis with memory-ID citations. |
+| Amazon Bedrock (optional) | Titan Text Embeddings V2 can create normalized 512-dimension embeddings and Bedrock Converse can synthesize evidence-bounded answers. The cost-conscious deployed demo keeps this feature disabled and uses deterministic local embeddings. |
 | AWS Lambda | `backend/app/lambda_handler.py` and [`infra/template.yaml`](infra/template.yaml) package the FastAPI API for Lambda + API Gateway. |
 | Amazon S3 | `POST /api/v1/exports` writes an immutable JSON memory report to a configured bucket. |
 
@@ -95,7 +95,7 @@ The selected Titan embedding model accepts 256, 512, or 1024 dimensions. Chronic
 
 ### 2. Enable Bedrock
 
-Configure AWS credentials for the process running FastAPI and grant `bedrock:InvokeModel` for the configured embedding and text models. Enable access to `amazon.titan-embed-text-v2:0` and your configured Converse-compatible model in the selected AWS region.
+To enable optional model-backed embeddings and synthesis, configure AWS credentials for the process running FastAPI and grant `bedrock:InvokeModel` for the configured models. The deployed demo leaves `USE_BEDROCK=false`, so no model inference is required.
 
 ### 3. Connect the coding agent through MCP
 

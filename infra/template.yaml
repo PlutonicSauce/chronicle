@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Chronicle FastAPI service on AWS Lambda with Amazon Bedrock.
+Description: Chronicle FastAPI service on AWS Lambda with CockroachDB Cloud memory.
 
 Parameters:
   DatabaseUrl:
@@ -34,19 +34,11 @@ Resources:
       Environment:
         Variables:
           DATABASE_URL: !Ref DatabaseUrl
-          USE_BEDROCK: 'true'
+          # Bedrock is optional in Chronicle. Keep it off in this deployment to
+          # use deterministic local embeddings and avoid model-inference charges.
+          USE_BEDROCK: 'false'
           S3_EXPORT_BUCKET: !Ref S3ExportBucket
           CORS_ORIGINS: !Ref FrontendOrigin
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:InvokeModel
-              Resource: '*'
-            - Effect: Allow
-              Action:
-                - s3:PutObject
-              Resource: '*'
       Events:
         HttpApi:
           Type: HttpApi
